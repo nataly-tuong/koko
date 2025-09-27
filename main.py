@@ -139,7 +139,9 @@ with ui.element('div').classes('fixed inset-0'):
                                     )
                                     with ui.row().classes('w-full'):
                                         dir_input = ui.input(label='Directory', value=SAVE_DEFAULT).classes('w-full text-white').props('outlined dense dark input-class="text-white"')
-                                        def_btn = ui.button('Default').props('color=black unelevated').classes('text-white')
+                            with ui.element('div').classes('w-full flex gap-3'):
+                                        folder_btn = ui.button('Folder').props('color=black unelevated').classes('text-white flex-1')
+                                        def_btn = ui.button('Default').props('color=black unelevated').classes('text-white flex-1')
 
                         with ui.element('div').classes('w-full rounded-md bg-black/90 p-3'):
                             audio_el = ui.audio(src=SILENCE_URL).props('controls controlslist="nodownload noplaybackrate noremoteplayback" preload=auto').classes('w-full')
