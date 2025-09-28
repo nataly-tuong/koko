@@ -89,19 +89,17 @@ def synthesize(text: str, voice: str, speed: float, save_dir: str, fmt: str):
     saved_path = write_format(audio, sr, Path(save_dir), base, fmt)
     return f'/generated/{play_path.name}', str(saved_path)
 
-with ui.element('div').classes('fixed inset-0'):
-    ui.element('div')\
-      .classes('absolute inset-0 bg-cover bg-center bg-no-repeat hue-rotate-0')\
-      .style('background-image: url(/assets/backgroundImage.gif)')
+with ui.element('div').classes('fixed inset-0 flex flex-col min-h-screen'):
+    ui.element('div').classes('absolute inset-0 bg-cover bg-center bg-no-repeat hue-rotate-0').style('background-image: url(/assets/backgroundImage.gif)')
     ui.element('div').classes('absolute inset-0 bg-black/15 backdrop-blur md:backdrop-blur-md lg:backdrop-blur-xl pointer-events-none')
 
-    with ui.element('div').classes('relative z-10 flex flex-col w-full p-10'):
+    with ui.element('div').classes('relative z-10 flex flex-1 flex-col w-full p-10'):
         with ui.element('div').classes('w-full pb-3'):
             ui.label('KokoSpeak').classes('text-white font-bold text-2xl sm:text-5xl md:text-6xl lg:text-8xl')
             ui.label('Using open-sourced AI, Kokoro').classes('text-white/90 font-semibold text-xs sm:text-lg md:text-xl')
 
-        with ui.element('div').classes('flex-1 w-full flex'):
-            with ui.element('div').classes('bg-blend-multiply bg-black/60 rounded-xl backdrop-blur-md w-full p-5 gap-5 flex-1 flex min-h-0 overflow-hidden'):
+        with ui.element('div').classes('flex flex-1 min-h-0'):
+            with ui.element('div').classes('bg-blend-multiply bg-black/60 rounded-xl backdrop-blur-md w-full p-5 gap-5 flex-1 flex flex-col min-h-0 overflow-hidden'):
                 with ui.element('div').classes('flex flex-1 min-h-0 min-w-0 flex-col sm:flex-row gap-4'):
                     with ui.element('div').classes('flex-1 min-w-0 flex min-h-0 flex-col gap-3'):
                         ui.label('Prompt / Text').classes('text-white font-semibold text-base sm:text-2xl')
@@ -146,6 +144,7 @@ with ui.element('div').classes('fixed inset-0'):
                         with ui.element('div').classes('w-full rounded-md bg-black/90 p-3'):
                             audio_el = ui.audio(src=SILENCE_URL).props('controls controlslist="nodownload noplaybackrate noremoteplayback" preload=auto').classes('w-full')
                             status = ui.label('').classes('text-white/70 text-sm whitespace-normal overflow-wrap-anywhere break-words')
+                ui.linear_progress(show_value=False, value=0.5).props('color=purple-12').classes('w-full shrink-0')
 
                 async def on_generate():
                     txt = (text_box.value or '').replace('\n', ' ')
