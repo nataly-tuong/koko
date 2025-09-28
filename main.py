@@ -30,7 +30,48 @@ a:hover { color: #8A2BE2; }
 """)
 
 _pipeline = None
-VOICE_OPTIONS = {'af_heart': 'F · Heart', 'af_bella': 'F · Bella', 'af_alloy': 'F · Alloy', 'am_adam': 'M · Adam'}
+
+LANGUAGE_OPTIONS = {
+    'a': 'American English',
+    'b': 'British English', 
+    'j': 'Japanese',
+    'z': 'Mandarin Chinese',
+    'f': 'French',
+    'h': 'Hindi',
+    'i': 'Italian',
+    'e': 'Spanish',
+    'p': 'Brazilian Portuguese'
+}
+
+ALL_VOICES = {
+    'a': {
+        'af_heart': 'F · Heart', 'af_alloy': 'F · Alloy', 'af_aoede': 'F · Aoede', 'af_bella': 'F · Bella',
+        'af_jessica': 'F · Jessica', 'af_kore': 'F · Kore', 'af_nicole': 'F · Nicole', 'af_nova': 'F · Nova',
+        'af_river': 'F · River', 'af_sarah': 'F · Sarah', 'af_sky': 'F · Sky',
+        'am_adam': 'M · Adam', 'am_echo': 'M · Echo', 'am_eric': 'M · Eric', 'am_fenrir': 'M · Fenrir',
+        'am_liam': 'M · Liam', 'am_michael': 'M · Michael', 'am_onyx': 'M · Onyx', 'am_puck': 'M · Puck',
+        'am_santa': 'M · Santa'
+    },
+    'b': {
+        'bf_alice': 'F · Alice', 'bf_emma': 'F · Emma', 'bf_isabella': 'F · Isabella', 'bf_lily': 'F · Lily',
+        'bm_daniel': 'M · Daniel', 'bm_fable': 'M · Fable', 'bm_george': 'M · George', 'bm_lewis': 'M · Lewis'
+    },
+    'j': {
+        'jf_alpha': 'F · Alpha', 'jf_gongitsune': 'F · Gongitsune', 'jf_nezumi': 'F · Nezumi',
+        'jf_tebukuro': 'F · Tebukuro', 'jm_kumo': 'M · Kumo'
+    },
+    'z': {
+        'zf_xiaobei': 'F · Xiaobei', 'zf_xiaoni': 'F · Xiaoni', 'zf_xiaoxiao': 'F · Xiaoxiao',
+        'zf_xiaoyi': 'F · Xiaoyi', 'zm_yunjian': 'M · Yunjian', 'zm_yunxi': 'M · Yunxi',
+        'zm_yunxia': 'M · Yunxia', 'zm_yunyang': 'M · Yunyang'
+    },
+    'f': {'ff_siwis': 'F · Siwis'},
+    'h': {'hf_alpha': 'F · Alpha', 'hf_beta': 'F · Beta', 'hm_omega': 'M · Omega', 'hm_psi': 'M · Psi'},
+    'i': {'if_sara': 'F · Sara', 'im_nicola': 'M · Nicola'},
+    'e': {'ef_dora': 'F · Dora', 'em_alex': 'M · Alex', 'em_santa': 'M · Santa'},
+    'p': {'pf_dora': 'F · Dora', 'pm_alex': 'M · Alex', 'pm_santa': 'M · Santa'}
+}
+
 SPEED_OPTIONS = {'0.80': 0.80, '0.90': 0.90, '1.00': 1.00, '1.10': 1.10, '1.20': 1.20}
 PITCH_OPTIONS = {f'{i:.2f}': i for i in np.arange(-2.0, 2.1, 0.1)}
 FORMAT_OPTIONS = {'wav': 'WAV', 'flac': 'FLAC', 'ogg': 'OGG', 'mp3': 'MP3'}
@@ -40,10 +81,10 @@ if not SILENCE.exists():
     sf.write(SILENCE, np.zeros(2400, dtype='float32'), 24000)
 SILENCE_URL = f'/generated/{SILENCE.name}'
 
-def kokoro_generate(text: str, voice: str, speed: float):
+def kokoro_generate(text: str, voice: str, speed: float, lang_code: str):
     global _pipeline
     if _pipeline is None:
-        _pipeline = KPipeline(lang_code='a')
+        _pipeline = KPipeline(lang_code=lang_code)
     stream = _pipeline(text, voice=voice, speed=speed)
     chunks = []
     for item in stream:
@@ -80,8 +121,8 @@ def write_format(audio, sr, out_dir: Path, base: str, fmt: str) -> Path:
     sf.write(p, audio, sr)
     return p
 
-def synthesize(text: str, voice: str, speed: float, pitch: float):
-    audio, sr = kokoro_generate(text, voice, speed)
+def synthesize(text: str, voice: str, speed: float, pitch: float, lang_code: str):
+    audio, sr = kokoro_generate(text, voice, speed, lang_code)
     if pitch != 0.0:
         semitones = pitch * 12
         rate = 2**(semitones/12)
@@ -126,10 +167,17 @@ with ui.element('div').classes('fixed inset-0 flex flex-col min-h-screen'):
                         ui.label('Audio Preview').classes('text-white font-semibold text-base sm:text-2xl')
                         ui.label('Settings (scroll to see all)').classes('text-white/60 text-xs')
                         with ui.scroll_area().classes('w-full flex-1 flex flex-col'):
+                            with ui.expansion('Language', value=False).classes('w-full bg-black/80 text-white rounded-md mb-1'):
+                                with ui.row().classes('w-full gap-4'):
+                                    language_select = ui.select(
+                                        options=LANGUAGE_OPTIONS, value='a', label='Language'
+                                    ).classes('w-full text-white').props(
+                                        'outlined dense dark popup-content-class="bg-black text-white" input-class="text-white"'
+                                    )
                             with ui.expansion('Voice', value=False).classes('w-full bg-black/80 text-white rounded-md mb-1'):
                                 with ui.row().classes('w-full gap-4'):
                                     voice_select = ui.select(
-                                        options=VOICE_OPTIONS, value='af_heart', label='Voice'
+                                        options=ALL_VOICES['a'], value='af_heart', label='Voice'
                                     ).classes('w-full text-white').props(
                                         'outlined dense dark popup-content-class="bg-black text-white" input-class="text-white"'
                                     )
@@ -147,7 +195,7 @@ with ui.element('div').classes('fixed inset-0 flex flex-col min-h-screen'):
                                     ).classes('w-full text-white').props(
                                         'outlined dense dark popup-content-class="bg-black text-white" input-class="text-white"'
                                     )
-                        with ui.element('div').classes('w-full rounded-md bg-black/90 p-3 flex items-center gap-3'):
+                        with ui.element('div').classes('w-full rounded-md bg-black/90 p-3 flex items-center'):
                             audio_el = ui.audio(src=SILENCE_URL).props('controls controlslist="nodownload noplaybackrate noremoteplayback" preload=metadata').classes('flex-1')
                         with ui.element('div').classes('w-full rounded-md bg-black/90 p-2 flex items-center gap-2'):
                             filename_input = ui.input(label='Filename', value='koko', placeholder='Enter filename').props('outlined dense dark').classes('flex-1 text-white')
@@ -166,9 +214,10 @@ with ui.element('div').classes('fixed inset-0 flex flex-col min-h-screen'):
                     if not txt:
                         status.text = 'Please enter some text.'
                         return
-                    v = voice_select.value or 'af_heart'
+                    v = voice_select.value or list(ALL_VOICES[language_select.value].keys())[0]
                     s = SPEED_OPTIONS.get(str(speed_select.value), 1.0)
                     p = PITCH_OPTIONS.get(str(pitch_select.value), 0.0)
+                    l = language_select.value or 'a'
                     gen_btn.disable()
                     
                     progress_bar.set_visibility(True)
@@ -176,7 +225,7 @@ with ui.element('div').classes('fixed inset-0 flex flex-col min-h-screen'):
                     status.text = 'Generating…'
                     
                     try:
-                        play_url, (audio, sr) = await asyncio.to_thread(synthesize, txt, v, s, p)
+                        play_url, (audio, sr) = await asyncio.to_thread(synthesize, txt, v, s, p, l)
                         audio_el.set_source(play_url if play_url else SILENCE_URL)
                         _last_audio = (audio, sr)
                         status.text = 'Ready to save.'
@@ -187,6 +236,15 @@ with ui.element('div').classes('fixed inset-0 flex flex-col min-h-screen'):
                         progress_bar.props(remove='indeterminate')
                         progress_bar.set_visibility(False)
                         gen_btn.enable()
+
+                def on_language_change():
+                    selected_lang = language_select.value
+                    voices_for_lang = ALL_VOICES.get(selected_lang, {})
+                    voice_select.set_options(voices_for_lang)
+                    if voices_for_lang:
+                        voice_select.set_value(list(voices_for_lang.keys())[0])
+
+                language_select.on_value_change(lambda: on_language_change())
 
                 async def save_file():
                     global _last_audio
