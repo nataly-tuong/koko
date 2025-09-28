@@ -156,9 +156,8 @@ with ui.element('div').classes('fixed inset-0 flex flex-col min-h-screen'):
                             ).props('outlined dense dark popup-content-class="bg-black text-white" input-class="text-white"').classes('text-white w-24')
                             save_btn = ui.button(icon='save').props('color=black unelevated').classes('text-white')
                         status = ui.label('').classes('text-white/70 text-sm whitespace-normal overflow-wrap-anywhere break-words px-3')
-                ui.linear_progress(show_value=False, value=0.5).props('color=purple-12').classes('w-full shrink-0')
 
-                _last_audio = None
+                progress_bar = ui.linear_progress(show_value=False, value=0).props('color=purple-12').classes('w-full shrink-0')
 
                 async def on_generate():
                     global _last_audio
@@ -171,7 +170,11 @@ with ui.element('div').classes('fixed inset-0 flex flex-col min-h-screen'):
                     s = SPEED_OPTIONS.get(str(speed_select.value), 1.0)
                     p = PITCH_OPTIONS.get(str(pitch_select.value), 0.0)
                     gen_btn.disable()
+                    
+                    progress_bar.set_visibility(True)
+                    progress_bar.props('indeterminate')
                     status.text = 'Generating…'
+                    
                     try:
                         play_url, (audio, sr) = await asyncio.to_thread(synthesize, txt, v, s, p)
                         audio_el.set_source(play_url if play_url else SILENCE_URL)
@@ -181,6 +184,8 @@ with ui.element('div').classes('fixed inset-0 flex flex-col min-h-screen'):
                         audio_el.set_source(SILENCE_URL)
                         status.text = f'Error: {e}'
                     finally:
+                        progress_bar.props(remove='indeterminate')
+                        progress_bar.set_visibility(False)
                         gen_btn.enable()
 
                 async def save_file():
