@@ -1,4 +1,4 @@
-from nicegui import ui, app, storage
+from nicegui import ui, app
 from pathlib import Path
 import asyncio, uuid, subprocess
 import numpy as np
@@ -32,9 +32,7 @@ a:hover { color: #8A2BE2; }
 _pipeline = None
 VOICE_OPTIONS = {'af_heart': 'F · Heart', 'af_bella': 'F · Bella', 'af_alloy': 'F · Alloy', 'am_adam': 'M · Adam'}
 SPEED_OPTIONS = {'0.80': 0.80, '0.90': 0.90, '1.00': 1.00, '1.10': 1.10, '1.20': 1.20}
-PITCH_OPTIONS = {
-    **{f'{i:.2f}': i for i in np.arange(-2.0, 2.1, 0.1)}
-}
+PITCH_OPTIONS = {f'{i:.2f}': i for i in np.arange(-2.0, 2.1, 0.1)}
 FORMAT_OPTIONS = {'wav': 'WAV', 'flac': 'FLAC', 'ogg': 'OGG', 'mp3': 'MP3'}
 
 SILENCE = GENERATED_DIR / 'silence.wav'
@@ -54,8 +52,6 @@ def kokoro_generate(text: str, voice: str, speed: float):
     if not chunks:
         return np.zeros(1, dtype='float32'), 24000
     return np.concatenate(chunks), 24000
-
-
 
 def write_format(audio, sr, out_dir: Path, base: str, fmt: str) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -96,14 +92,9 @@ def synthesize(text: str, voice: str, speed: float, pitch: float):
         try:
             subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', str(in_path), '-filter:a', f'asetrate={sr*rate},aresample={sr}', str(out_path)], check=True)
             audio, sr = sf.read(out_path)
-        except FileNotFoundError:
-            raise RuntimeError("ffmpeg not found. Please install ffmpeg and ensure it is in your system's PATH.")
-        except subprocess.CalledProcessError as e:
-            raise RuntimeError(f'ffmpeg error: {e}')
         finally:
             in_path.unlink(missing_ok=True)
             out_path.unlink(missing_ok=True)
-
     base = uuid.uuid4().hex
     play_path = GENERATED_DIR / f'{base}.wav'
     sf.write(play_path, audio, sr)
@@ -133,36 +124,38 @@ with ui.element('div').classes('fixed inset-0 flex flex-col min-h-screen'):
 
                     with ui.element('div').classes('flex-1 min-w-0 flex min-h-0 flex-col gap-3'):
                         ui.label('Audio Preview').classes('text-white font-semibold text-base sm:text-2xl')
-
-                        with ui.scroll_area().classes('w-full flex-1 flex flex-col gap-3'):
-                            with ui.expansion('Voice', value=False).classes('w-full bg-black/80 text-white rounded-md'):
+                        ui.label('Settings (scroll to see all)').classes('text-white/60 text-xs')
+                        with ui.scroll_area().classes('w-full flex-1 flex flex-col'):
+                            with ui.expansion('Voice', value=False).classes('w-full bg-black/80 text-white rounded-md mb-1'):
                                 with ui.row().classes('w-full gap-4'):
                                     voice_select = ui.select(
                                         options=VOICE_OPTIONS, value='af_heart', label='Voice'
                                     ).classes('w-full text-white').props(
                                         'outlined dense dark popup-content-class="bg-black text-white" input-class="text-white"'
                                     )
-
-                            with ui.expansion('Speed', value=False).classes('w-full bg-black/80 text-white rounded-md'):
+                            with ui.expansion('Speed', value=False).classes('w-full bg-black/80 text-white rounded-md mb-1'):
                                 with ui.row().classes('w-full gap-4'):
                                     speed_select = ui.select(
                                         options=list(SPEED_OPTIONS.keys()), value='1.00', label='Speed'
                                     ).classes('w-full text-white').props(
                                         'outlined dense dark popup-content-class="bg-black text-white" input-class="text-white"'
                                     )
-
-                            with ui.expansion('Pitch', value=False).classes('w-full bg-black/80 text-white rounded-md'):
+                            with ui.expansion('Pitch', value=False).classes('w-full bg-black/80 text-white rounded-md mb-1'):
                                 with ui.row().classes('w-full gap-4'):
                                     pitch_select = ui.select(
                                         options=list(PITCH_OPTIONS.keys()), value='0.00', label='Pitch'
                                     ).classes('w-full text-white').props(
                                         'outlined dense dark popup-content-class="bg-black text-white" input-class="text-white"'
                                     )
-
                         with ui.element('div').classes('w-full rounded-md bg-black/90 p-3 flex items-center gap-3'):
                             audio_el = ui.audio(src=SILENCE_URL).props('controls controlslist="nodownload noplaybackrate noremoteplayback" preload=metadata').classes('flex-1')
+                        with ui.element('div').classes('w-full rounded-md bg-black/90 p-2 flex items-center gap-2'):
+                            filename_input = ui.input(label='Filename', value='koko', placeholder='Enter filename').props('outlined dense dark').classes('flex-1 text-white')
+                            format_select = ui.select(
+                                options=FORMAT_OPTIONS, value='wav', label='Format'
+                            ).props('outlined dense dark popup-content-class="bg-black text-white" input-class="text-white"').classes('text-white w-24')
                             save_btn = ui.button(icon='save').props('color=black unelevated').classes('text-white')
-                            status = ui.label('').classes('text-white/70 text-sm whitespace-normal overflow-wrap-anywhere break-words')
+                        status = ui.label('').classes('text-white/70 text-sm whitespace-normal overflow-wrap-anywhere break-words px-3')
                 ui.linear_progress(show_value=False, value=0.5).props('color=purple-12').classes('w-full shrink-0')
 
                 _last_audio = None
@@ -196,19 +189,19 @@ with ui.element('div').classes('fixed inset-0 flex flex-col min-h-screen'):
                         status.text = 'Please generate audio first.'
                         return
                     (audio, sr) = _last_audio
-                    file_types = [f'{v} (*.{k})' for k, v in FORMAT_OPTIONS.items()]
-                    result = await app.native.main_window.create_file_dialog(allow_multiple=False, dialog_title='Save Audio As', file_types=file_types)
-                    if result:
-                        save_path = Path(result)
-                        fmt = save_path.suffix[1:]
-                        if fmt not in FORMAT_OPTIONS:
-                            status.text = f'Invalid format: {fmt}'
-                            return
-                        try:
-                            write_format(audio, sr, save_path.parent, save_path.stem, fmt)
-                            status.text = f'Saved: {save_path}'
-                        except Exception as e:
-                            status.text = f'Error saving: {e}'
+                    
+                    filename = (filename_input.value or 'koko').strip()
+                    if not filename:
+                        filename = 'koko'
+                    
+                    selected_format = format_select.value or 'wav'
+                    
+                    try:
+                        save_path = GENERATED_DIR / f'{filename}.{selected_format}'
+                        write_format(audio, sr, save_path.parent, save_path.stem, selected_format)
+                        status.text = f'Saved: {save_path.name}'
+                    except Exception as e:
+                        status.text = f'Save failed: {e}'
 
                 def on_clear():
                     text_box.value = ''
