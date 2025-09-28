@@ -1,4 +1,4 @@
-from nicegui import ui, app
+from nicegui import ui, app, storage
 from pathlib import Path
 import asyncio, uuid, subprocess
 import numpy as np
@@ -32,6 +32,9 @@ a:hover { color: #8A2BE2; }
 _pipeline = None
 VOICE_OPTIONS = {'af_heart': 'F · Heart', 'af_bella': 'F · Bella', 'af_alloy': 'F · Alloy', 'am_adam': 'M · Adam'}
 SPEED_OPTIONS = {'0.80': 0.80, '0.90': 0.90, '1.00': 1.00, '1.10': 1.10, '1.20': 1.20}
+PITCH_OPTIONS = {
+    **{f'{i:.2f}': i for i in np.arange(-2.0, 2.1, 0.1)}
+}
 FORMAT_OPTIONS = {'wav': 'WAV', 'flac': 'FLAC', 'ogg': 'OGG', 'mp3': 'MP3'}
 
 SILENCE = GENERATED_DIR / 'silence.wav'
@@ -81,13 +84,30 @@ def write_format(audio, sr, out_dir: Path, base: str, fmt: str) -> Path:
     sf.write(p, audio, sr)
     return p
 
-def synthesize(text: str, voice: str, speed: float, save_dir: str, fmt: str):
+def synthesize(text: str, voice: str, speed: float, pitch: float):
     audio, sr = kokoro_generate(text, voice, speed)
+    if pitch != 0.0:
+        semitones = pitch * 12
+        rate = 2**(semitones/12)
+        base = uuid.uuid4().hex
+        in_path = GENERATED_DIR / f'{base}_in.wav'
+        out_path = GENERATED_DIR / f'{base}_out.wav'
+        sf.write(in_path, audio, sr)
+        try:
+            subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', str(in_path), '-filter:a', f'asetrate={sr*rate},aresample={sr}', str(out_path)], check=True)
+            audio, sr = sf.read(out_path)
+        except FileNotFoundError:
+            raise RuntimeError("ffmpeg not found. Please install ffmpeg and ensure it is in your system's PATH.")
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f'ffmpeg error: {e}')
+        finally:
+            in_path.unlink(missing_ok=True)
+            out_path.unlink(missing_ok=True)
+
     base = uuid.uuid4().hex
     play_path = GENERATED_DIR / f'{base}.wav'
     sf.write(play_path, audio, sr)
-    saved_path = write_format(audio, sr, Path(save_dir), base, fmt)
-    return f'/generated/{play_path.name}', str(saved_path)
+    return f'/generated/{play_path.name}', (audio, sr)
 
 with ui.element('div').classes('fixed inset-0 flex flex-col min-h-screen'):
     with ui.element('video').props('autoplay muted loop playsinline')\
@@ -114,60 +134,81 @@ with ui.element('div').classes('fixed inset-0 flex flex-col min-h-screen'):
                     with ui.element('div').classes('flex-1 min-w-0 flex min-h-0 flex-col gap-3'):
                         ui.label('Audio Preview').classes('text-white font-semibold text-base sm:text-2xl')
 
-                        with ui.expansion('Voice', value=False).classes('bg-black/80 text-white rounded-md'):
-                            with ui.row().classes('w-full gap-4'):
-                                voice_select = ui.select(
-                                    options=VOICE_OPTIONS, value='af_heart', label='Voice'
-                                ).classes('min-w-[12rem] text-white').props(
-                                    'outlined dense dark popup-content-class="bg-black text-white" input-class="text-white"'
-                                )
-
-                        with ui.expansion('Speed', value=False).classes('bg-black/80 text-white rounded-md'):
-                            with ui.row().classes('w-full gap-4'):
-                                speed_select = ui.select(
-                                    options=list(SPEED_OPTIONS.keys()), value='1.00', label='Speed'
-                                ).classes('min-w-[10rem] text-white').props(
-                                    'outlined dense dark popup-content-class="bg-black text-white" input-class="text-white"'
-                                )
-
-                        with ui.expansion('Output & Save', value=False).classes('bg-black/80 text-white rounded-md'):
-                            with ui.grid(columns=2).classes('w-full gap-4'):
-                                    format_select = ui.select(
-                                        options=FORMAT_OPTIONS, value='wav', label='Format'
+                        with ui.scroll_area().classes('w-full flex-1 flex flex-col gap-3'):
+                            with ui.expansion('Voice', value=False).classes('w-full bg-black/80 text-white rounded-md'):
+                                with ui.row().classes('w-full gap-4'):
+                                    voice_select = ui.select(
+                                        options=VOICE_OPTIONS, value='af_heart', label='Voice'
                                     ).classes('w-full text-white').props(
                                         'outlined dense dark popup-content-class="bg-black text-white" input-class="text-white"'
                                     )
-                                    with ui.row().classes('w-full'):
-                                        dir_input = ui.input(label='Directory', value=SAVE_DEFAULT).classes('w-full text-white').props('outlined dense dark input-class="text-white"')
-                            with ui.element('div').classes('w-full flex gap-3'):
-                                        folder_btn = ui.button('Folder').props('color=black unelevated').classes('text-white flex-1')
-                                        def_btn = ui.button('Default').props('color=black unelevated').classes('text-white flex-1')
 
-                        with ui.element('div').classes('w-full rounded-md bg-black/90 p-3'):
-                            audio_el = ui.audio(src=SILENCE_URL).props('controls controlslist="nodownload noplaybackrate noremoteplayback" preload=metadata').classes('w-full')
+                            with ui.expansion('Speed', value=False).classes('w-full bg-black/80 text-white rounded-md'):
+                                with ui.row().classes('w-full gap-4'):
+                                    speed_select = ui.select(
+                                        options=list(SPEED_OPTIONS.keys()), value='1.00', label='Speed'
+                                    ).classes('w-full text-white').props(
+                                        'outlined dense dark popup-content-class="bg-black text-white" input-class="text-white"'
+                                    )
+
+                            with ui.expansion('Pitch', value=False).classes('w-full bg-black/80 text-white rounded-md'):
+                                with ui.row().classes('w-full gap-4'):
+                                    pitch_select = ui.select(
+                                        options=list(PITCH_OPTIONS.keys()), value='0.00', label='Pitch'
+                                    ).classes('w-full text-white').props(
+                                        'outlined dense dark popup-content-class="bg-black text-white" input-class="text-white"'
+                                    )
+
+                        with ui.element('div').classes('w-full rounded-md bg-black/90 p-3 flex items-center gap-3'):
+                            audio_el = ui.audio(src=SILENCE_URL).props('controls controlslist="nodownload noplaybackrate noremoteplayback" preload=metadata').classes('flex-1')
+                            save_btn = ui.button(icon='save').props('color=black unelevated').classes('text-white')
                             status = ui.label('').classes('text-white/70 text-sm whitespace-normal overflow-wrap-anywhere break-words')
                 ui.linear_progress(show_value=False, value=0.5).props('color=purple-12').classes('w-full shrink-0')
 
+                _last_audio = None
+
                 async def on_generate():
+                    global _last_audio
+                    status.text = ''
                     txt = (text_box.value or '').replace('\n', ' ')
                     if not txt:
                         status.text = 'Please enter some text.'
                         return
                     v = voice_select.value or 'af_heart'
                     s = SPEED_OPTIONS.get(str(speed_select.value), 1.0)
-                    f = format_select.value or 'wav'
-                    d = dir_input.value or SAVE_DEFAULT
+                    p = PITCH_OPTIONS.get(str(pitch_select.value), 0.0)
                     gen_btn.disable()
                     status.text = 'Generating…'
                     try:
-                        play_url, saved_path = await asyncio.to_thread(synthesize, txt, v, s, f'{d}', f)
+                        play_url, (audio, sr) = await asyncio.to_thread(synthesize, txt, v, s, p)
                         audio_el.set_source(play_url if play_url else SILENCE_URL)
-                        status.text = f'Saved: {saved_path}'
+                        _last_audio = (audio, sr)
+                        status.text = 'Ready to save.'
                     except Exception as e:
                         audio_el.set_source(SILENCE_URL)
                         status.text = f'Error: {e}'
                     finally:
                         gen_btn.enable()
+
+                async def save_file():
+                    global _last_audio
+                    if not _last_audio:
+                        status.text = 'Please generate audio first.'
+                        return
+                    (audio, sr) = _last_audio
+                    file_types = [f'{v} (*.{k})' for k, v in FORMAT_OPTIONS.items()]
+                    result = await app.native.main_window.create_file_dialog(allow_multiple=False, dialog_title='Save Audio As', file_types=file_types)
+                    if result:
+                        save_path = Path(result)
+                        fmt = save_path.suffix[1:]
+                        if fmt not in FORMAT_OPTIONS:
+                            status.text = f'Invalid format: {fmt}'
+                            return
+                        try:
+                            write_format(audio, sr, save_path.parent, save_path.stem, fmt)
+                            status.text = f'Saved: {save_path}'
+                        except Exception as e:
+                            status.text = f'Error saving: {e}'
 
                 def on_clear():
                     text_box.value = ''
@@ -176,5 +217,6 @@ with ui.element('div').classes('fixed inset-0 flex flex-col min-h-screen'):
 
                 gen_btn.on_click(on_generate)
                 clr_btn.on_click(on_clear)
+                save_btn.on_click(save_file)
 
 ui.run(native=True, reload=False)
