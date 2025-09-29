@@ -6,6 +6,7 @@ importlib-metadata==8.0.0
 jaraco.collections==5.1.0
 kokoro==0.9.4
 nicegui==2.24.2
+numpy
 num2words==0.5.14
 phonemizer-fork==3.3.2
 pip-chill==1.0.3

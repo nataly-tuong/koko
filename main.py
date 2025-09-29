@@ -1,6 +1,6 @@
 from nicegui import ui, app
 from pathlib import Path
-import asyncio, uuid, subprocess
+import asyncio, uuid, subprocess, base64, io, tempfile
 import numpy as np
 import soundfile as sf
 from kokoro import KPipeline
@@ -30,6 +30,7 @@ a:hover { color: #8A2BE2; }
 """)
 
 _pipeline = None
+_last_audio = None
 
 LANGUAGE_OPTIONS = {
     'a': 'American English',
@@ -72,8 +73,6 @@ ALL_VOICES = {
     'p': {'pf_dora': 'F · Dora', 'pm_alex': 'M · Alex', 'pm_santa': 'M · Santa'}
 }
 
-SPEED_OPTIONS = {'0.80': 0.80, '0.90': 0.90, '1.00': 1.00, '1.10': 1.10, '1.20': 1.20}
-PITCH_OPTIONS = {f'{i:.2f}': i for i in np.arange(-2.0, 2.1, 0.1)}
 FORMAT_OPTIONS = {'wav': 'WAV', 'flac': 'FLAC', 'ogg': 'OGG', 'mp3': 'MP3'}
 
 SILENCE = GENERATED_DIR / 'silence.wav'
@@ -124,22 +123,24 @@ def write_format(audio, sr, out_dir: Path, base: str, fmt: str) -> Path:
 def synthesize(text: str, voice: str, speed: float, pitch: float, lang_code: str):
     audio, sr = kokoro_generate(text, voice, speed, lang_code)
     if pitch != 0.0:
-        semitones = pitch * 12
-        rate = 2**(semitones/12)
-        base = uuid.uuid4().hex
-        in_path = GENERATED_DIR / f'{base}_in.wav'
-        out_path = GENERATED_DIR / f'{base}_out.wav'
-        sf.write(in_path, audio, sr)
-        try:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_dir_path = Path(temp_dir)
+            semitones = pitch * 12
+            rate = 2**(semitones/12)
+            base = uuid.uuid4().hex
+            in_path = temp_dir_path / f'{base}_in.wav'
+            out_path = temp_dir_path / f'{base}_out.wav'
+            sf.write(in_path, audio, sr)
             subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', str(in_path), '-filter:a', f'asetrate={sr*rate},aresample={sr}', str(out_path)], check=True)
             audio, sr = sf.read(out_path)
-        finally:
-            in_path.unlink(missing_ok=True)
-            out_path.unlink(missing_ok=True)
-    base = uuid.uuid4().hex
-    play_path = GENERATED_DIR / f'{base}.wav'
-    sf.write(play_path, audio, sr)
-    return f'/generated/{play_path.name}', (audio, sr)
+
+    with io.BytesIO() as buffer:
+        sf.write(buffer, audio, sr, format='wav')
+        buffer.seek(0)
+        encoded_audio = base64.b64encode(buffer.read()).decode()
+        play_url = f'data:audio/wav;base64,{encoded_audio}'
+    
+    return play_url, (audio, sr)
 
 with ui.element('div').classes('fixed inset-0 flex flex-col min-h-screen'):
     with ui.element('video').props('autoplay muted loop playsinline')\
@@ -182,19 +183,15 @@ with ui.element('div').classes('fixed inset-0 flex flex-col min-h-screen'):
                                         'outlined dense dark popup-content-class="bg-black text-white" input-class="text-white"'
                                     )
                             with ui.expansion('Speed', value=False).classes('w-full bg-black/80 text-white rounded-md mb-1'):
-                                with ui.row().classes('w-full gap-4'):
-                                    speed_select = ui.select(
-                                        options=list(SPEED_OPTIONS.keys()), value='1.00', label='Speed'
-                                    ).classes('w-full text-white').props(
-                                        'outlined dense dark popup-content-class="bg-black text-white" input-class="text-white"'
-                                    )
+                                with ui.column().classes('w-full gap-2'):
+                                    ui.label('Speed').classes('text-white/80 text-sm')
+                                    speed_slider = ui.slider(min=0.80, max=1.20, value=1.00, step=0.01).classes('w-full')
+                                    ui.label().bind_text_from(speed_slider, 'value', backward=lambda v: f'{v:.2f}x').classes('text-white/60 text-xs')
                             with ui.expansion('Pitch', value=False).classes('w-full bg-black/80 text-white rounded-md mb-1'):
-                                with ui.row().classes('w-full gap-4'):
-                                    pitch_select = ui.select(
-                                        options=list(PITCH_OPTIONS.keys()), value='0.00', label='Pitch'
-                                    ).classes('w-full text-white').props(
-                                        'outlined dense dark popup-content-class="bg-black text-white" input-class="text-white"'
-                                    )
+                                with ui.column().classes('w-full gap-2'):
+                                    ui.label('Pitch (octaves)').classes('text-white/80 text-sm')
+                                    pitch_slider = ui.slider(min=-2.00, max=2.00, value=0.00, step=0.01).classes('w-full')
+                                    ui.label().bind_text_from(pitch_slider, 'value', backward=lambda v: f'{v:+.2f}').classes('text-white/60 text-xs')
                         with ui.element('div').classes('w-full rounded-md bg-black/90 p-3 flex items-center'):
                             audio_el = ui.audio(src=SILENCE_URL).props('controls controlslist="nodownload noplaybackrate noremoteplayback" preload=metadata').classes('flex-1')
                         with ui.element('div').classes('w-full rounded-md bg-black/90 p-2 flex items-center gap-2'):
@@ -215,15 +212,13 @@ with ui.element('div').classes('fixed inset-0 flex flex-col min-h-screen'):
                         status.text = 'Please enter some text.'
                         return
                     v = voice_select.value or list(ALL_VOICES[language_select.value].keys())[0]
-                    s = SPEED_OPTIONS.get(str(speed_select.value), 1.0)
-                    p = PITCH_OPTIONS.get(str(pitch_select.value), 0.0)
+                    s = float(speed_slider.value or 1.0)
+                    p = float(pitch_slider.value or 0.0)
                     l = language_select.value or 'a'
                     gen_btn.disable()
-                    
                     progress_bar.set_visibility(True)
                     progress_bar.props('indeterminate')
                     status.text = 'Generating…'
-                    
                     try:
                         play_url, (audio, sr) = await asyncio.to_thread(synthesize, txt, v, s, p, l)
                         audio_el.set_source(play_url if play_url else SILENCE_URL)
@@ -252,13 +247,10 @@ with ui.element('div').classes('fixed inset-0 flex flex-col min-h-screen'):
                         status.text = 'Please generate audio first.'
                         return
                     (audio, sr) = _last_audio
-                    
                     filename = (filename_input.value or 'koko').strip()
                     if not filename:
                         filename = 'koko'
-                    
                     selected_format = format_select.value or 'wav'
-                    
                     try:
                         save_path = GENERATED_DIR / f'{filename}.{selected_format}'
                         write_format(audio, sr, save_path.parent, save_path.stem, selected_format)
