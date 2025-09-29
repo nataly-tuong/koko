@@ -2,14 +2,13 @@
 
 A text-to-speech application that uses the open-source AI, Kokoro, to generate audio from text input.
 
+> **Run it on your own machine, completely offline and for free!** All processing is done locally, ensuring your data stays private.
+
 ## Preview
 
 ![KokoSpeak Thumbnail](assets/thumbnail.png)
 
-<video controls>
-  <source src="assets/preview.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+<video controls src="https://github.com/nataly-tuong/koko/raw/main/assets/preview.mp4"></video>
 
 ## Features
 
@@ -34,6 +33,72 @@ A text-to-speech application that uses the open-source AI, Kokoro, to generate a
 *   **Status Messages:** Get informative messages about the status of audio generation and saving.
 *   **Error Handling:** The UI displays clear error messages if audio generation or saving fails.
 *   **Responsive Design:** The user interface is designed to work on various screen sizes.
+
+## Available Languages and Voices
+
+1.  **American English**
+    *   F · Heart
+    *   F · Alloy
+    *   F · Aoede
+    *   F · Bella
+    *   F · Jessica
+    *   F · Kore
+    *   F · Nicole
+    *   F · Nova
+    *   F · River
+    *   F · Sarah
+    *   F · Sky
+    *   M · Adam
+    *   M · Echo
+    *   M · Eric
+    *   M · Fenrir
+    *   M · Liam
+    *   M · Michael
+    *   M · Onyx
+    *   M · Puck
+    *   M · Santa
+2.  **British English**
+    *   F · Alice
+    *   F · Emma
+    *   F · Isabella
+    *   F · Lily
+    *   M · Daniel
+    *   M · Fable
+    *   M · George
+    *   M · Lewis
+3.  **Japanese**
+    *   F · Alpha
+    *   F · Gongitsune
+    *   F · Nezumi
+    *   F · Tebukuro
+    *   M · Kumo
+4.  **Mandarin Chinese**
+    *   F · Xiaobei
+    *   F · Xiaoni
+    *   F · Xiaoxiao
+    *   F · Xiaoyi
+    *   M · Yunjian
+    *   M · Yunxi
+    *   M · Yunxia
+    *   M · Yunyang
+5.  **French**
+    *   F · Siwis
+6.  **Hindi**
+    *   F · Alpha
+    *   F · Beta
+    *   M · Omega
+    *   M · Psi
+7.  **Italian**
+    *   F · Sara
+    *   M · Nicola
+8.  **Spanish**
+    *   F · Dora
+    *   M · Alex
+    *   M · Santa
+9.  **Brazilian Portuguese**
+    *   F · Dora
+    *   M · Alex
+    *   M · Santa
 
 ## Technologies Used
 
