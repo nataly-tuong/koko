@@ -6,10 +6,10 @@ A text-to-speech application that uses the open-source AI, Kokoro, to generate a
 
 ![KokoSpeak Thumbnail](assets/thumbnail.png)
 
-<audio controls>
-  <source src="assets/preview.wav" type="audio/wav">
-  Your browser does not support the audio element.
-</audio>
+<video controls>
+  <source src="assets/preview.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
 
 ## Features
 
