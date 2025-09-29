@@ -7,7 +7,7 @@ A text-to-speech application that uses the open-source AI, Kokoro, to generate a
 ## Preview
 
 ![KokoSpeak Thumbnail](assets/thumbnail.png)
-https://github.com/user-attachments/assets/045c261f-f2e0-4610-bcee-b34ddec6aca2
+[https://github.com/user-attachments/assets/045c261f-f2e0-4610-bcee-b34ddec6aca2](https://github.com/user-attachments/assets/4baeeb52-7a2b-4d5a-b787-8098bfc773bc)
 
 ## Features
 
